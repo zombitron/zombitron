@@ -52,11 +52,17 @@ function loadInterface() {
 }
 
 function start(){ // user action required first
+
   var inter = setInterval(function () {
-    if (window.zombitron.zombiterface) {
-      var zombiterface = new window.zombitron.zombiterface(container, socket);
-      clearInterval(inter);
-      pancarte.remove();
+
+    try{
+      if (typeof(window.zombitron.zombiterface) != 'undefined' && typeof(window.zombitron.sensors) != 'undefined' ) {
+        var zombiterface = new window.zombitron.zombiterface(container, socket);
+        clearInterval(inter);
+        pancarte.remove();
+      }
+    }catch(err){
+      alert(err);
     }
   }, 100);
 }

@@ -26,6 +26,22 @@ class Zombiterface6 {
                     alert('l\'orientation n\'a pas pu être détectée');
                 }
             }
+            if (options.acceleration) {
+                if (window.DeviceMotionEvent) {
+                    if (typeof (window.DeviceMotionEvent.requestPermission) === "function") {
+                        window.DeviceMotionEvent.requestPermission().then(response => {
+                            if (response == 'granted') {
+                                this.initializeAcceleration(options.acceleration);
+                            }
+                        }).catch((e) => alert('permission denied'));
+                    } else {
+                        this.initializeAcceleration(options.acceleration);
+                    }
+                }
+                else {
+                    alert('l\'acceleration n\'a pas pu être détectée');
+                }
+            }
         }
 
         const elements = Array.prototype.slice.call(this.element.children);
@@ -41,7 +57,7 @@ class Zombiterface6 {
     }
 
     initializeXY(elem, options) {
-        var XY = new window.zombitron.XY(elem, options);
+        var XY = new window.zombitron.sensors.XY(elem, options);
         elem.addEventListener("touchstart", (e) => {
             this.onXYEvent(e, XY);
         });
@@ -83,38 +99,32 @@ class Zombiterface6 {
     // }
 
     initializeOrientation(options) {
-        this.sensors.orientation = {
-            type: 'sensorData',
-            sensorType: 'deviceorientation',
-            data: {}
-        }
-
+        this.orientation = new window.zombitron.sensors.Orientation(options);
         window.addEventListener("deviceorientation", (e) => {
-            var valueChanged = false;
-            if (options.alpha) {
-                var alpha = Math.round(100 * e.alpha / 360) / 100;
-                if (alpha != this.sensors.orientation.data[options.alpha]) {
-                    this.sensors.orientation.data[options.alpha] = alpha;
-                    valueChanged = true;
-                }
+            this.onOrientationEvent(e, options);
+        });
+    }
+
+    onOrientationEvent(e, options) {
+        try{
+            if(this.orientation.newValues(e, options)){
+                this.send(this.orientation);
             }
-            if (options.beta) {
-                var beta = Math.round(100 * (e.beta + 180) / 360) / 100;
-                if (beta != this.sensors.orientation.data[options.beta]) {
-                    this.sensors.orientation.data[options.beta] = beta;
-                    valueChanged = true;
-                }
-            }
-            if (options.gamma) {
-                var gamma = Math.round(100 * (e.gamma + 90) / 180) / 100;
-                if (gamma != this.sensors.orientation.data[options.gamma]) {
-                    this.sensors.orientation.data[options.gamma] = gamma;
-                    valueChanged = true;
-                }
-            }
-            if (valueChanged) {
-                this.send(this.sensors.orientation);
-            }
+        }catch(err){
+            alert(err)
+        }
+    }
+
+    onMotionEvent(e, options) {
+        if(this.acceleration.newValues(e, options)){
+            this.send(this.acceleration);
+        }
+    }
+
+    initializeAcceleration(options) {
+        this.acceleration = new window.zombitron.sensors.Motion(options);
+        window.addEventListener("devicemotion", (e) => {
+            this.onMotionEvent(e, options);
         });
     }
 

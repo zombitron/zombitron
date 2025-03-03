@@ -2,12 +2,13 @@ if (!window.zombitron) {
     window.zombitron = {};
 }
 
-window.zombitron.XY = function (element, options) {
+var sensors = {};
+sensors.XY = function (element, options) {
     this.element = element;
     this.options = options;
 }
 
-window.zombitron.XY.prototype = {
+sensors.XY.prototype = {
     encode: function (e) {
         var rect = this.element.getBoundingClientRect();
         var XYObj = {
@@ -29,3 +30,75 @@ window.zombitron.XY.prototype = {
         return XYObj;
     }
 }
+
+sensors.IMU = function () {
+    this.data = {};
+    this.params = [];
+}
+sensors.IMU.prototype = {
+    newValues: function (e, options) {
+        var sensorsvalues = this.update(e, options);
+        if (this.changed(sensorsvalues)) {
+            this.data = sensorsvalues;
+            return true;
+        } else {
+            return false;
+        }
+    },
+    changed: function (newval) {
+        var changed = false;
+        Object.keys(newval).forEach(function (param) {
+            if (this.data[param]) {
+                if (newval[param] !== this.data[param]) {
+                    changed = true;
+                }
+            } else {
+                changed = true;
+            }
+        }.bind(this));
+        return changed;
+    },
+    compute: function (e, param) {
+        return e[param];
+    },
+    update: function (e, options) {
+        var sensorsvalues = {};
+        this.params.forEach(function (param) {
+            if (options[param]) {
+                var v = 0;
+                try {
+                    v = this.compute(e, param);
+                } catch (error) {
+                    alert(error);
+                }
+                sensorsvalues[options[param]] = v;
+            }
+        }.bind(this));
+        return sensorsvalues;
+    }
+}
+
+sensors.Orientation = function (options) {
+    this.options = options;
+    this.data = {};
+    this.type = 'sensorData';
+    this.sensorType = 'deviceorientation';
+    this.params = ['alpha', 'beta', 'gamma'];
+}
+sensors.Orientation.prototype = new sensors.IMU();
+sensors.Orientation.prototype.compute = function (event, param) {
+    return Math.round(100 * event[param] / 360) / 100;
+}
+
+sensors.Motion = function (options) {
+    this.options = options;
+    this.data = {};
+    this.type = 'sensorData';
+    this.sensorType = 'deviceacceleration'
+    this.params = ['x', 'y', 'z'];
+}
+sensors.Motion.prototype = new sensors.IMU();
+sensors.Motion.prototype.compute = function (event, param) {
+    return Math.round(100 * event.acceleration[param] / 360) / 100;
+}
+window.zombitron.sensors = sensors;
