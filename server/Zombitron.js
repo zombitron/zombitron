@@ -3,7 +3,7 @@ let buffer = null;
 try {
     buffer = require('node:buffer');
 } catch (ex) {
-    console.log("node:buffer nnot defined")
+    console.log("node:buffer not defined")
 }
 if (!buffer) {
     buffer = require('buffer');
@@ -44,11 +44,11 @@ class Zombitron {
         const server = this.server;
         this.socketServer = new WebSocket.Server({ server });
         this.init_socket();
-
+        const path = require('path');
         this.app.use('/scripts', this.express.static(__dirname + '/../../node_modules'));
         this.app.use('/zombitron', this.express.static(__dirname + '/../../zombitron'));
         this.app.get('/certificate', function (req, res) {
-            res.sendFile(__dirname + '/../../zombitron/server/certs/server.crt');
+            res.sendFile(path.resolve(__dirname + '/../../zombitron/server/certs/server.crt'));
         });
     }
 
@@ -96,7 +96,7 @@ class Zombitron {
                     file = new Blob([msg], { type: 'application/json' });
                     file.text()
                         .then(value => {
-                            parseMsg(value);
+                            this.parseMsg(value);
                         })
                         .catch(error => {
                             console.log("Something went wrong" + error);
