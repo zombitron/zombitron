@@ -1,104 +1,131 @@
 if (!window.zombitron) {
     window.zombitron = {};
 }
-
-var sensors = {};
-sensors.XY = function (element, options) {
+var zombiterface = function (element) {
+    this.socket = null;
     this.element = element;
-    this.options = options;
-}
-
-sensors.XY.prototype = {
-    encode: function (e) {
-        var rect = this.element.getBoundingClientRect();
-        var XYObj = {
-            type: 'sensorData',
-            sensorType: 'XY',
-            data: {}
-        };
-
-        for (var i = 0; i < e.touches.length; i += 1) {
-            var x = (e.touches[i].clientX - rect.left) / rect.width;
-            var y = (e.touches[i].clientY - rect.top) / rect.height;
-            if (i == 0 && this.options.x1) {
-                XYObj.data[this.options['x1']] = Math.round(100 * x) / 100;
-            }
-            if (i == 0 && this.options.y1) {
-                XYObj.data[this.options['y1']] = Math.round(100 * y) / 100;
-            }
-        }
-        return XYObj;
+    this.name = 'noname';
+    try {
+        this.initialize();
+        this.initializeSocket();
+        window.addEventListener('beforeunload', function (e) {
+            this.send({ 'data': { 'disconnection': this.name } });
+        }.bind(this));
+        this.socket.addEventListener('open', function () {
+            this.send({ 'data': { 'connection': this.name } });
+        }.bind(this));
+    } catch (er) {
+        alert(er);
     }
 }
 
-sensors.IMU = function () {
-    this.data = {};
-    this.params = [];
-}
-sensors.IMU.prototype = {
-    newValues: function (e, options) {
-        var sensorsvalues = this.update(e, options);
-        if (this.changed(sensorsvalues)) {
-            this.data = sensorsvalues;
-            return true;
-        } else {
-            return false;
-        }
-    },
-    changed: function (newval) {
-        var changed = false;
-        Object.keys(newval).forEach(function (param) {
-            if (this.data[param]) {
-                if (newval[param] !== this.data[param]) {
-                    changed = true;
+zombiterface.prototype = {
+    initialize: function () {
+        // initializing interfaces
+        var options = this.element.getAttribute('data-zombitron');
+        if (options) {
+            options = JSON.parse(options);
+            if (options.name) {
+                this.name = options.name;
+            }
+            if (options.orientation) {
+                if (DeviceOrientationEvent != 'undefined') {
+                    if (typeof (DeviceOrientationEvent.requestPermission) === "function") {
+                        var callback = this.initializeOrientation(options.orientation);
+                        DeviceOrientationEvent.requestPermission(callback);
+                    } else {
+                        this.initializeOrientation(options.orientation);
+                    }
                 }
+                else {
+                    alert('l\'orientation n\'a pas pu être détectée');
+                }
+            }
+            if (options.acceleration) {
+                if (DeviceMotionEvent != 'undefined') {
+                    if (typeof (DeviceMotionEvent.requestPermission) === "function") {
+                        var callback = this.initializeAcceleration(options.acceleration);
+                        DeviceMotionEvent.requestPermission(callback);
+                    } else {
+                        this.initializeAcceleration(options.acceleration);
+                    }
+                }
+                else {
+                    alert('l\'orientation n\'a pas pu être détectée');
+                }
+            }
+        }
+
+        var elements = Array.prototype.slice.call(this.element.children);
+        elements.forEach(function (element) {
+            var element_options = element.getAttribute('data-zombitron');
+            if (element_options) {
+                element_options = JSON.parse(element_options);
+                if (element_options.type) {
+                    var callback = this.send.bind(this);
+                    window.zombitron.sensors.initialize(element, element_options, callback);
+                }
+            }
+        }.bind(this));
+    },
+    initializeSocket: function () {
+        try {
+            var socketServer = '';
+            if (window.location.protocol === 'https:') {
+                socketServer = 'wss://';
             } else {
-                changed = true;
+                socketServer = 'ws://';
             }
-        }.bind(this));
-        return changed;
-    },
-    compute: function (e, param) {
-        return e[param];
-    },
-    update: function (e, options) {
-        var sensorsvalues = {};
-        this.params.forEach(function (param) {
-            if (options[param]) {
-                var v = 0;
-                try {
-                    v = this.compute(e, param);
-                } catch (error) {
-                    alert(error);
+            socketServer += window.location.host;
+            this.socket = new WebSocket(socketServer);
+        } catch (e) {
+            alert(JSON.stringify(e))
+        }
+
+        this.socket.addEventListener('message', function (msg) {
+            if (msg) {
+                if (msg.data instanceof Blob) {
+                    reader = new FileReader();
+                    reader.addEventListener('load', function (e) {
+                        var object = JSON.parse(reader.result);
+                        if (object) {
+                            this.onMessage(object);
+                        }
+                    }.bind(this));
+                    reader.readAsText(msg.data);
                 }
-                sensorsvalues[options[param]] = v;
             }
         }.bind(this));
-        return sensorsvalues;
+    },
+    onMessage: function (object) {
+        Object.keys(object.data).forEach(function (key) {
+            var evt = new CustomEvent(key, { detail: object.data[key] });
+            window.dispatchEvent(evt);
+        }.bind(this));
+    },
+    initializeOrientation: function (options) {
+        this.orientation = new window.zombitron.sensors.Orientation(options);
+        window.addEventListener("deviceorientation", function (e) {
+            this.onIMUEvent(this.orientation, e, options);
+        }.bind(this));
+    },
+    initializeAcceleration: function (options) {
+        this.acceleration = new window.zombitron.sensors.Motion(options);
+        window.addEventListener("devicemotion", function (e) {
+            this.onIMUEvent(this, acceleration, e, options);
+        }.bind(this));
+    },
+    onIMUEvent: function (imuSensor, e, options) {
+        if (imuSensor.newValues(e, options)) {
+            this.send(imuSensor);
+        }
+    },
+    send: function (obj) {
+        if (this.socket.readyState == 1) {
+            var blob = new Blob([JSON.stringify(obj)], { type: "application/json" });
+            this.socket.send(blob);
+        }
     }
 }
 
-sensors.Orientation = function (options) {
-    this.options = options;
-    this.data = {};
-    this.type = 'sensorData';
-    this.sensorType = 'deviceorientation';
-    this.params = ['alpha', 'beta', 'gamma'];
-}
-sensors.Orientation.prototype = new sensors.IMU();
-sensors.Orientation.prototype.compute = function (event, param) {
-    return Math.round(100 * event[param] / 360) / 100;
-}
-
-sensors.Motion = function (options) {
-    this.options = options;
-    this.data = {};
-    this.type = 'sensorData';
-    this.sensorType = 'deviceacceleration'
-    this.params = ['x', 'y', 'z'];
-}
-sensors.Motion.prototype = new sensors.IMU();
-sensors.Motion.prototype.compute = function (event, param) {
-    return Math.round(100 * event.acceleration[param] / 360) / 100;
-}
-window.zombitron.sensors = sensors;
+window.zombitron.zombiterface5 = zombiterface;
