@@ -1,0 +1,24 @@
+const { exec } = require('child_process');
+const certificateDirectory = "zombitron/setup/certs";
+const { networkInterfaces, hostname } = require('os');
+const nets = networkInterfaces();
+let serverIP = '';
+for (const name of Object.keys(nets)) {
+    for (const net of nets[name]) {
+        const familyV4Value = typeof net.family === 'string' ? 'IPv4' : 4
+        if (net.family === familyV4Value && !net.internal) {
+            serverIP = net.address;
+        }
+    }
+}
+exec('mkdir ' + certificateDirectory, (err, stdout, stderr) => {
+    console.log('Created folder: ' + certificateDirectory);
+    exec('openssl genrsa -out ' + certificateDirectory + '/server.key 2048', (err, stdout, stderr) => {
+        console.log('Created key');
+        exec('openssl req -new -x509 -sha256 -key ' + certificateDirectory + '/server.key -out ' + certificateDirectory + '/server.crt -days 365 -subj /CN=' + serverIP, (err, stdout, stderr) => {
+            if (!err) {
+                console.log('Created certificate for ip: ' + serverIP);
+            }
+        });
+    });
+});

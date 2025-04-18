@@ -1,2 +1,2 @@
-server/certs/server.crt
-server/certs/server.key
+setup/certs/server.crt
+setup/certs/server.key
