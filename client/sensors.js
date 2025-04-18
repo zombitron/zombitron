@@ -80,10 +80,10 @@ sensors.Touch.prototype = {
     clamp: function (v, min, max) {
         return Math.min(max, Math.max(min, v));
     },
-    getWidth(element) {
+    getWidth: function (element) {
         return parseInt(window.getComputedStyle(element).getPropertyValue('width'));
     },
-    getHeight(element) {
+    getHeight: function (element) {
         return parseInt(window.getComputedStyle(element).getPropertyValue('height'));
     }
 }
@@ -120,7 +120,7 @@ sensors.SliderXY.prototype.initView = function () {
     if (this.options.cursor != false) {
         this.cursor = document.createElement('div');
         this.cursor.classList.add('cursor');
-        this.element.append(this.cursor);
+        this.element.appendChild(this.cursor);
     }
 }
 
@@ -171,7 +171,7 @@ sensors.Slider.prototype.initView = function () {
     this.progress.style.top = 0;
     this.progress.style.left = 0;
     this.progress.classList.add('progress');
-    this.element.append(this.progress);
+    this.element.appendChild(this.progress);
 
     if (this.options.orientation == 'horizontal') {
         this.progress.style.height = this.getHeight(this.element) + 'px';
@@ -229,16 +229,6 @@ sensors.Button = function (element, options, callback) {
 
 sensors.Button.prototype = new sensors.Touch();
 
-// sensors.Button.prototype.updateValues = function (e) {
-//     if (this.options.toggle) {
-//         this.value = !this.value;
-//     }
-//     else {
-//         this.value = true;
-//     }
-//     this.updateView();
-// }
-
 sensors.Button.prototype.encode = function () {
     var touchObj = sensors.Touch.prototype.encode.call(this);
     touchObj.data[this.options.value] = this.value;
@@ -273,7 +263,7 @@ sensors.Button.prototype.initView = function () {
     this.on.style.left = 0;
     this.on.style.visibility = "hidden";
     this.on.classList.add('on');
-    this.element.append(this.on);
+    this.element.appendChild(this.on);
 }
 
 sensors.Button.prototype.updateView = function () {
@@ -343,7 +333,7 @@ sensors.Motion = function (options) {
     this.options = options;
     this.data = {};
     this.type = 'sensorData';
-    this.sensorType = 'deviceacceleration'
+    this.sensorType = 'deviceacceleration';
     this.params = ['x', 'y', 'z'];
 }
 sensors.Motion.prototype = new sensors.IMU();
