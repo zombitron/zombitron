@@ -1,4 +1,5 @@
 const OSCSendor = require("./OSCSendor");
+const path = require('path');
 let buffer = null;
 try {
     buffer = require('node:buffer');
@@ -14,9 +15,14 @@ class Zombitron {
     https_enabled;
     server;
     port;
+    protocol;
     constructor(configfile = "setup.json") {
-        let config = JSON.parse(fs.readFileSync("./" + String(configfile)))
+        let config = JSON.parse(fs.readFileSync("./zombitron/setup/" + String(configfile)))
         this.https_enabled = config.https;
+        this.protocol = "http";
+        if (this.https_enabled) {
+            this.protocol = "https";
+        }
         this.port = config.server_port;
         this.osc = null;
         if (config.osc) {
@@ -28,14 +34,14 @@ class Zombitron {
         this.server = this.init_server();
 
         // initialize hostnames
-        this.hostnames = ["localhost", "*"];
+        this.hostname = '';
         const { networkInterfaces, hostname } = require('os');
         const nets = networkInterfaces();
         for (const name of Object.keys(nets)) {
             for (const net of nets[name]) {
                 const familyV4Value = typeof net.family === 'string' ? 'IPv4' : 4
                 if (net.family === familyV4Value && !net.internal) {
-                    this.hostnames.push(net.address);
+                    this.hostname = net.address;
                 }
             }
         }
@@ -44,11 +50,38 @@ class Zombitron {
         const server = this.server;
         this.socketServer = new WebSocket.Server({ server });
         this.init_socket();
-        const path = require('path');
+        this.init_paths();
+    }
+
+    init_paths() {
         this.app.use('/scripts', this.express.static(__dirname + '/../../node_modules'));
         this.app.use('/zombitron', this.express.static(__dirname + '/../../zombitron'));
         this.app.get('/certificate', function (req, res) {
-            res.sendFile(path.resolve(__dirname + '/../../zombitron/server/certs/server.crt'));
+            res.sendFile(path.resolve(__dirname + '/../../zombitron/setup/certs/server.crt'));
+        });
+        this.app.use('/assets', this.express.static(__dirname + '/../../assets'));
+        const fs = require('fs');
+        fs.readdir("./views", (err, files) => {
+            console.log("Interfaces found:")
+            files.forEach(file => {
+                if (file.split(".").length > 1) {
+                    if (file.split(".")[1] == "html") {
+                        const name = file.split(".")[0];
+                        if (name != 'index') {
+                            this.app.get('/' + name, function (req, res) {
+                                res.sendFile(path.resolve(__dirname + '/../../views/' + file));
+                            });
+                            console.log("> "+name + " : " + `${this.protocol}://${this.hostname}:${this.port}/${name}`)
+                            // console.log(`${this.protocol}://${this.hostname}:${this.port}/${name}`);
+                        } else {
+                            this.app.get('/', function (req, res) {
+                                res.sendFile(path.resolve(__dirname + '/../../views/index.html'));
+                            });
+                            console.log("> "+name + " : " + `${this.protocol}://${this.hostname}:${this.port}/`)
+                        }
+                    }
+                }
+            });
         });
     }
 
@@ -59,8 +92,8 @@ class Zombitron {
         if (this.https_enabled) {
             http = require('https');
             const options = {
-                key: fs.readFileSync(__dirname + '/certs/server.key'),
-                cert: fs.readFileSync(__dirname + '/certs/server.crt')
+                key: fs.readFileSync(__dirname + '/../setup/certs/server.key'),
+                cert: fs.readFileSync(__dirname + '/../setup/certs/server.crt')
             };
             server = http.createServer(options, this.app);
         } else {
@@ -115,14 +148,7 @@ class Zombitron {
 
     start() {
         this.server.listen(this.port, () => {
-            console.log(`listening on:`);
-            this.hostnames.forEach(hostname => {
-                let protocol = "http";
-                if (this.https_enabled) {
-                    protocol = "https";
-                }
-                console.log(`- ${protocol}://${hostname}:${this.port}`);
-            })
+            console.log('ZOMBITRON STARTED :) \n')
         });
     }
 }

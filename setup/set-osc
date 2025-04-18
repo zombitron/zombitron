@@ -1,0 +1,21 @@
+#! /usr/bin/env node
+var data = require('./setup.json');
+var fs = require('fs');
+if (process.argv.length > 2){
+    if(process.argv[2] != "false"){
+        if (process.argv.length > 3) {
+            data.osc = { 'ip': process.argv[2], 'port': process.argv[3] };
+        } else {
+            data.osc = { 'ip': process.argv[2], 'port': 8000 };
+        }
+        console.log("Successfully enabled OSC, IP address to "+ data.osc.ip + " and port to: " + data.osc.port);
+    } else{
+        data.osc = null;
+        console.log("Successfully disabled OSC");
+    }
+    fs.writeFile(__dirname +'/setup.json', JSON.stringify(data), function (e) { });
+}
+else {
+    console.error('bad format, should be : set-osc [\'destip\'] [destport] or false');
+    data.osc = null;
+}
