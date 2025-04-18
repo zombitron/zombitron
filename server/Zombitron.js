@@ -71,13 +71,13 @@ class Zombitron {
                             this.app.get('/' + name, function (req, res) {
                                 res.sendFile(path.resolve(__dirname + '/../../views/' + file));
                             });
-                            console.log("> "+name + " : " + `${this.protocol}://${this.hostname}:${this.port}/${name}`)
+                            console.log("> " + name + " : " + `${this.protocol}://${this.hostname}:${this.port}/${name}`)
                             // console.log(`${this.protocol}://${this.hostname}:${this.port}/${name}`);
                         } else {
                             this.app.get('/', function (req, res) {
                                 res.sendFile(path.resolve(__dirname + '/../../views/index.html'));
                             });
-                            console.log("> "+name + " : " + `${this.protocol}://${this.hostname}:${this.port}/`)
+                            console.log("> " + name + " : " + `${this.protocol}://${this.hostname}:${this.port}/`)
                         }
                     }
                 }
