@@ -1,2 +1,3 @@
 setup/certs/server.crt
 setup/certs/server.key
+setup/setup.json
