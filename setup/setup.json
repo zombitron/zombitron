@@ -1,5 +1,1 @@
-{
-    "https": true,
-    "server_port": 3000,
-    "osc": null
-}
+{"https":true,"server_port":3000,"osc":null}

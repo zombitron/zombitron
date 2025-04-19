@@ -1,7 +1,3 @@
 #! /usr/bin/env node
-var data = require('./setup.json');
-var fs = require('fs');
-data.https = (process.argv[2] == 'true');
-fs.writeFile(__dirname + '/setup.json', JSON.stringify(data), function (e) { });
-console.log("Successfully set secure server to " + data.https);
-console.log('if not done, generate certificates by running: npm run makecerts');
+const utils = require('./utils.js');
+utils.sethttps(process.argv[2]);
