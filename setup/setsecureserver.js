@@ -1,6 +1,5 @@
-const readline = require('node:readline');
 const utils = require('./utils.js');
-const rl = readline.createInterface({
+const rl = utils.readline.createInterface({
     input: process.stdin,
     output: process.stdout,
 });

@@ -1,10 +1,9 @@
 #! /usr/bin/env node
-const e = require('express');
 var data = require('./setup.json');
 var fs = require('fs');
-const readline = require('node:readline');
-const { resolve } = require('node:path');
 
+exports.readline = require('readline');
+const { resolve } = require('path');
 const { exec } = require('child_process');
 const certificateDirectory = "zombitron/setup/certs";
 const { networkInterfaces, hostname } = require('os');

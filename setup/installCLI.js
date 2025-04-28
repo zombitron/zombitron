@@ -1,11 +1,10 @@
-const readline = require('node:readline');
 const utils = require('./utils.js');
 console.log("┌────────────────────────┐");
 console.log("│ Welcome to Zombitron ! │");
 console.log("└────────────────────────┘");
 console.log("We have a few things to do together before you can start playing");
 
-const rl = readline.createInterface({
+const rl = utils.readline.createInterface({
     input: process.stdin,
     output: process.stdout,
 });
