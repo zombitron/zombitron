@@ -20,13 +20,19 @@ sensors.initialize = function (element, options, callback) {
                 obj = new sensors.Button(element, options, callback);
                 obj.init();
                 break;
+            case 'selector':
+                obj = new sensors.Selector(element, options, callback);
+                obj.init();
+                break;
             default:
                 console.error('Unknown input type : ' + options.type);
+                return {};
                 break;
         }
+        return obj;
     }
     else {
-        console.log("unknown touch input type");
+        console.error("unknown touch input type");
     }
 }
 
@@ -35,10 +41,12 @@ sensors.Touch = function (element, options, callback) {
     this.options = options;
     this.eventCallback = callback;
 }
-
 sensors.Touch.prototype = {
     init: function () {
         this.initEventListeners();
+        if (this.element.getAttribute('id') != "") {
+            this.id = this.element.getAttribute('id');
+        }
         this.element.classList.add('zombitronelem', this.options.type);
         this.element.classList.add(this.options.type);
         this.initView();
@@ -47,13 +55,26 @@ sensors.Touch.prototype = {
         this.element.addEventListener("touchstart", function (e) {
             e.preventDefault();
             this.onTouchStart(e);
-        }.bind(this));
+            this.change();
+        }.bind(this), { passive: false });
+
+        this.element.addEventListener("touchmove", function (e) {
+            e.preventDefault();
+            this.onTouchMove(e);
+            this.change();
+        }.bind(this), { passive: false });
 
         this.element.addEventListener("touchend", function (e) {
             e.preventDefault();
             this.onTouchEnd(e);
-        }.bind(this));
+            this.change();
+        }.bind(this), { passive: false });
+
+        this.element.addEventListener("scroll", function (e) {
+            e.preventDefault();
+        }.bind(this), { passive: false });
     },
+    change: function () { },
     initView: function () {
         return
     },
@@ -65,6 +86,9 @@ sensors.Touch.prototype = {
         };
     },
     onTouchStart: function (e) {
+        return
+    },
+    onTouchMove: function (e) {
         return
     },
     onTouchEnd: function (e) {
@@ -100,10 +124,6 @@ sensors.SliderXY.prototype = new sensors.Touch();
 
 sensors.SliderXY.prototype.initEventListeners = function () {
     sensors.Touch.prototype.initEventListeners.call(this);
-    this.element.addEventListener("touchmove", function (e) {
-        e.preventDefault();
-        this.onTouchMove(e);
-    }.bind(this));
 }
 
 sensors.SliderXY.prototype.onTouchMove = function (e) {
@@ -131,6 +151,12 @@ sensors.SliderXY.prototype.updateView = function () {
     }
 }
 
+sensors.SliderXY.prototype.setValue = function (val) {
+    this.value = val;
+    this.updateView();
+    this.eventCallback(this.encode());
+}
+
 sensors.SliderXY.prototype.setRelativePosLeft = function (elem, value) {
     return - this.getWidth(elem) / 2 + (this.clamp(value, 0, 1) * this.getWidth(this.element)) + "px";
 }
@@ -141,15 +167,25 @@ sensors.SliderXY.prototype.setRelativePosTop = function (elem, value) {
 
 sensors.SliderXY.prototype.updateValues = function (e) {
     var touchpos = this.getTouchPosition(e);
-    this.value.x = this.clamp(Math.round(100 * touchpos.x) / 100, 0, 1);
-    this.value.y = this.clamp(Math.round(100 * touchpos.y) / 100, 0, 1);
-    this.updateView();
+    var newVal = { x: this.clamp(Math.round(100 * touchpos.x) / 100, 0, 1), y: this.clamp(Math.round(100 * touchpos.y) / 100, 0, 1) };
+    var changed = false;
+    if (newVal.x != this.value.x) {
+        this.value.x = newVal.x;
+        changed = true;
+    }
+    if (newVal.y != this.value.y) {
+        this.value.y = newVal.y;
+        changed = true;
+    }
+    if (changed) {
+        this.updateView();
+    }
 }
 
 sensors.SliderXY.prototype.encode = function () {
     var touchObj = sensors.Touch.prototype.encode.call(this);
     touchObj.data[this.options.x] = this.value.x;
-    touchObj.data[this.options.y] = this.value.y;
+    touchObj.data[this.options.y] = 1 - this.value.y;
     return touchObj;
 }
 
@@ -166,57 +202,148 @@ sensors.Slider.prototype = new sensors.SliderXY();
 sensors.Slider.prototype.initView = function () {
     sensors.SliderXY.prototype.initView.call(this);
     this.element.classList.add(this.options.orientation);
+    this.progressbar = document.createElement('div');
+    this.progressbar.style.position = 'absolute';
+    this.progressbar.classList.add('progressbar');
+    this.element.appendChild(this.progressbar);
+
     this.progress = document.createElement('div');
     this.progress.style.position = 'absolute';
     this.progress.style.top = 0;
     this.progress.style.left = 0;
     this.progress.classList.add('progress');
-    this.element.appendChild(this.progress);
+    this.progressbar.appendChild(this.progress);
 
     if (this.options.orientation == 'horizontal') {
-        this.progress.style.height = this.getHeight(this.element) + 'px';
+        this.progress.style.height = '100%';
         if (this.cursor) {
             this.cursor.style.top = this.setRelativePosTop(this.cursor, 0.5);
         }
 
     } else if (this.options.orientation == 'vertical') {
-        this.progress.style.width = this.getWidth(this.element) + 'px';
+        this.progress.style.width = '100%';
         if (this.cursor) {
             this.cursor.style.left = this.setRelativePosLeft(this.cursor, 0.5);
         }
     }
+
+    this.reversed = this.options.reversed == true;
 }
 
+sensors.Slider.prototype.getValue = function () {
+    if (this.reversed) {
+        return 1 - this.value;
+    }
+    return this.value;
+}
 sensors.Slider.prototype.updateView = function () {
     if (this.options.orientation == 'horizontal') {
-        this.progress.style.width = this.value * this.getWidth(this.element) + 'px';
+        var width = 0;
+        var left = 0;
+        if (this.reversed) {
+            left = (this.getValue());
+            width = (1 - this.getValue());
+        } else {
+            width = this.getValue();
+        }
+
+        this.progress.style.width = width * this.getWidth(this.element) + 'px';
+        this.progress.style.left = left * this.getWidth(this.element) + 'px';
         if (this.cursor) {
-            this.cursor.style.left = this.setRelativePosLeft(this.cursor, this.value);
+            this.cursor.style.left = this.setRelativePosLeft(this.cursor, this.getValue());
         }
 
     } else if (this.options.orientation == 'vertical') {
-        this.progress.style.height = this.value * this.getHeight(this.element) + 'px';
+        var height = 0;
+        var top = 0;
+        if (this.reversed) {
+            height = (1 - this.getValue());
+        } else {
+            height = this.getValue();
+            top = (1 - this.getValue());
+        }
+        this.progress.style.height = height * this.getHeight(this.element) + 'px';
+        this.progress.style.top = top * this.getHeight(this.element) + 'px';
         if (this.cursor) {
-            this.cursor.style.top = this.setRelativePosTop(this.cursor, this.value);
+            this.cursor.style.top = this.setRelativePosTop(this.cursor, 1 - this.getValue());
         }
     }
 }
 
 sensors.Slider.prototype.updateValues = function (e) {
     var touchpos = this.getTouchPosition(e);
+    var newVal;
     if (this.options.orientation == 'horizontal') {
-        this.value = this.clamp(Math.round(100 * touchpos.x) / 100, 0, 1);
+        newVal = this.clamp(Math.round(100 * touchpos.x) / 100, 0, 1);
+
     }
     else if (this.options.orientation == 'vertical') {
-        this.value = this.clamp(Math.round(100 * touchpos.y) / 100, 0, 1);
+        newVal = 1 - this.clamp(Math.round(100 * touchpos.y) / 100, 0, 1);
     }
-    this.updateView();
+
+    if (this.reversed) {
+        newVal = 1 - newVal;
+    }
+
+    if (newVal != this.getValue()) {
+        this.value = newVal;
+        this.updateView();
+    };
 }
 
 sensors.Slider.prototype.encode = function () {
     var touchObj = sensors.Touch.prototype.encode.call(this);
     touchObj.data[this.options.value] = this.value;
     return touchObj;
+}
+
+//////////// Selector //////////////
+sensors.Selector = function (element, options, callback) {
+    this.element = element;
+    this.options = options;
+    this.eventCallback = callback;
+    this.value = 0;
+    this.elements = [];
+}
+
+sensors.Selector.prototype = {
+    init: function () {
+        Array.prototype.slice.call(this.element.children).forEach(function (child, i) {
+            var btn = new sensors.Button(child, { value: i, type: "button", toggle: true }, this.buttonClicked.bind(this));
+            btn.init();
+            btn.selectorid = i;
+            this.elements.push(btn);
+        }.bind(this));
+        if (this.element.getAttribute('id') != "") {
+            this.id = this.element.getAttribute('id');
+        }
+        this.updateView();
+    },
+    change: function () { },
+    buttonClicked: function (e) {
+        var id = Object.keys(e.data)[0];
+        this.value = id;
+        this.updateView();
+        this.eventCallback(this.encode());
+        this.change();
+    },
+    updateView: function () {
+        Array.prototype.slice.call(this.elements).forEach(function (elem) {
+            elem.value = false;
+            elem.updateView();
+        })
+        this.elements[this.value].value = true;
+        this.elements[this.value].updateView();
+    },
+    encode: function () {
+        var newdata = {};
+        newdata[this.options.value] = this.value;
+        return {
+            type: 'sensorData',
+            sensorType: 'selector',
+            data: newdata
+        }
+    }
 }
 
 //////////// Button //////////////
@@ -237,20 +364,22 @@ sensors.Button.prototype.encode = function () {
 
 sensors.Button.prototype.onTouchStart = function (e) {
     if (this.options.toggle) {
-        this.value = !this.value;
+        this.setValue(!this.value);
     }
     else {
-        this.value = true;
+        this.setValue(true);
     }
-    this.updateView();
-    this.eventCallback(this.encode());
 }
 
 sensors.Button.prototype.onTouchEnd = function (e) {
     if (!this.options.toggle) {
-        this.value = false;
-        this.eventCallback(this.encode());
+        this.setValue(false);
     }
+}
+
+sensors.Button.prototype.setValue = function (value) {
+    this.value = value;
+    this.eventCallback(this.encode());
     this.updateView();
 }
 

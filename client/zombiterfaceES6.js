@@ -10,4 +10,4 @@ class zombiterface6 extends window.zombitron.zombiterface5 {
 if (!window.zombitron) {
     window.zombitron = {};
 }
-window.zombitron.zombiterface = zombiterface6;
+window.zombitron.zombiterfaceclass = zombiterface6;

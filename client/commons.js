@@ -1,13 +1,15 @@
 if (!window.zombitron) {
     window.zombitron = {};
 }
-var zombiterface = function (element) {
+
+var zombiterfaceclass = function (element) {
     this.socket = null;
     this.element = element;
+    this.interfaces = {};
     this.name = 'noname';
+    this.ready = false;
     try {
         this.initialize();
-        this.initializeSocket();
         window.addEventListener('beforeunload', function (e) {
             this.send({ 'data': { 'disconnection': this.name } });
         }.bind(this));
@@ -19,7 +21,7 @@ var zombiterface = function (element) {
     }
 }
 
-zombiterface.prototype = {
+zombiterfaceclass.prototype = {
     initialize: function () {
         // initializing interfaces
         var options = this.element.getAttribute('data-zombitron');
@@ -29,7 +31,7 @@ zombiterface.prototype = {
                 this.name = options.name;
             }
             if (options.orientation) {
-                if (DeviceOrientationEvent != 'undefined') {
+                if (typeof (DeviceOrientationEvent) != 'undefined') {
                     if (typeof (DeviceOrientationEvent.requestPermission) === "function") {
                         var callback = this.initializeOrientation(options.orientation);
                         DeviceOrientationEvent.requestPermission(callback);
@@ -42,7 +44,7 @@ zombiterface.prototype = {
                 }
             }
             if (options.acceleration) {
-                if (DeviceMotionEvent != 'undefined') {
+                if (typeof (DeviceMotionEvent) != 'undefined') {
                     if (typeof (DeviceMotionEvent.requestPermission) === "function") {
                         var callback = this.initializeAcceleration(options.acceleration);
                         DeviceMotionEvent.requestPermission(callback);
@@ -55,18 +57,32 @@ zombiterface.prototype = {
                 }
             }
         }
-
         var elements = Array.prototype.slice.call(this.element.children);
-        elements.forEach(function (element) {
-            var element_options = element.getAttribute('data-zombitron');
-            if (element_options) {
-                element_options = JSON.parse(element_options);
-                if (element_options.type) {
-                    var callback = this.send.bind(this);
-                    window.zombitron.sensors.initialize(element, element_options, callback);
+        this.initDomElements(elements);
+
+        this.initializeSocket();
+        this.ready = true;
+    },
+    initDomElements: function (elements) {
+        if(elements){
+            elements.forEach(function (element) {
+                var element_options = element.getAttribute('data-zombitron');
+                if (element_options) {
+                    element_options = JSON.parse(element_options);
+                    if (element_options.type) {
+                        if (element_options.type === 'container') {
+                            this.initDomElements(Array.prototype.slice.call(element.children));
+                        }else{
+                            var callback = this.send.bind(this);
+                            var interface = window.zombitron.sensors.initialize(element, element_options, callback);
+                            if (interface.id) {
+                                this.interfaces[interface.id] = interface;
+                            }
+                        }
+                    }
                 }
-            }
-        }.bind(this));
+            }.bind(this));
+        }
     },
     initializeSocket: function () {
         try {
@@ -85,14 +101,14 @@ zombiterface.prototype = {
         this.socket.addEventListener('message', function (msg) {
             if (msg) {
                 if (msg.data instanceof Blob) {
-                    reader = new FileReader();
+                    var reader = new FileReader();
+                    reader.readAsText(msg.data);
                     reader.addEventListener('load', function (e) {
                         var object = JSON.parse(reader.result);
                         if (object) {
                             this.onMessage(object);
                         }
                     }.bind(this));
-                    reader.readAsText(msg.data);
                 }
             }
         }.bind(this));
@@ -112,7 +128,7 @@ zombiterface.prototype = {
     initializeAcceleration: function (options) {
         this.acceleration = new window.zombitron.sensors.Motion(options);
         window.addEventListener("devicemotion", function (e) {
-            this.onIMUEvent(this, acceleration, e, options);
+            this.onIMUEvent(this.acceleration, e, options);
         }.bind(this));
     },
     onIMUEvent: function (imuSensor, e, options) {
@@ -125,7 +141,10 @@ zombiterface.prototype = {
             var blob = new Blob([JSON.stringify(obj)], { type: "application/json" });
             this.socket.send(blob);
         }
+    },
+    find: function (interfaceid) {
+        return this.interfaces[interfaceid];
     }
 }
 
-window.zombitron.zombiterface5 = zombiterface;
+window.zombitron.zombiterface5 = zombiterfaceclass;
