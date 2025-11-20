@@ -40,7 +40,10 @@ sensors.Touch = function (element, options, callback) {
     this.element = element;
     this.options = options;
     this.eventCallback = callback;
+    this.eventDelayTime = 100;
+    this.lastEventTime = Date.now();
 }
+
 sensors.Touch.prototype = {
     init: function () {
         this.initEventListeners();
@@ -109,6 +112,14 @@ sensors.Touch.prototype = {
     },
     getHeight: function (element) {
         return parseInt(window.getComputedStyle(element).getPropertyValue('height'));
+    },
+    setValueIfChanged(newval) {
+        if (this.value != newval) {
+            this.value = newval;
+            this.updateView();
+            return true
+        }
+        return false
     }
 }
 
@@ -128,7 +139,11 @@ sensors.SliderXY.prototype.initEventListeners = function () {
 
 sensors.SliderXY.prototype.onTouchMove = function (e) {
     this.updateValues(e);
-    this.eventCallback(this.encode());
+    var now = Date.now();
+    if (now - this.eventDelayTime > this.lastEventTime) {
+        this.eventCallback(this.encode());
+        this.lastEventTime = now;
+    }
 }
 
 sensors.SliderXY.prototype.onTouchStart = function (e) {
@@ -154,7 +169,11 @@ sensors.SliderXY.prototype.updateView = function () {
 sensors.SliderXY.prototype.setValue = function (val) {
     this.value = val;
     this.updateView();
-    this.eventCallback(this.encode());
+    var now = Date.now();
+    if (now - this.eventDelayTime > this.lastEventTime) {
+        this.eventCallback(this.encode());
+        this.lastEventTime = now;
+    }
 }
 
 sensors.SliderXY.prototype.setRelativePosLeft = function (elem, value) {
@@ -168,6 +187,7 @@ sensors.SliderXY.prototype.setRelativePosTop = function (elem, value) {
 sensors.SliderXY.prototype.updateValues = function (e) {
     var touchpos = this.getTouchPosition(e);
     var newVal = { x: this.clamp(Math.round(100 * touchpos.x) / 100, 0, 1), y: this.clamp(Math.round(100 * touchpos.y) / 100, 0, 1) };
+
     var changed = false;
     if (newVal.x != this.value.x) {
         this.value.x = newVal.x;
@@ -343,6 +363,14 @@ sensors.Selector.prototype = {
             sensorType: 'selector',
             data: newdata
         }
+    },
+    setValueIfChanged(newval) {
+        if (this.value != newval) {
+            this.value = newval;
+            this.updateView();
+            return true
+        }
+        return false
     }
 }
 

@@ -107,7 +107,7 @@ class Zombitron {
         let object = JSON.parse(value);
         Object.keys(object.data).forEach((key) => {
             const value = object.data[key];
-            console.log(key, value)
+            // console.log(key, value)
             if (this.osc) {
                 try {
                     this.osc.message(key, value);
