@@ -3,7 +3,7 @@ var container = document.querySelector('#container');
 var started = false;
 var infos = { es6: false };
 var options = {
-  requestFullscreen: false,
+  requestFullscreen: true,
   reloadOnDoubleClick: true
 };
 
